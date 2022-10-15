@@ -23,7 +23,7 @@ interface LPProvider {
 }
 
 describe("liquidity_pool", () => {
-  // Configure the client to use the local cluster.
+
   // Configure the client to use the local cluster.
   let provider = anchor.AnchorProvider.env();
   let connection = provider.connection;
@@ -41,7 +41,7 @@ describe("liquidity_pool", () => {
     let sig = await connection.requestAirdrop(auth.publicKey, 100 * web3.LAMPORTS_PER_SOL);
     await connection.confirmTransaction(sig);
 
-    // mint for token X
+    // We are using new token to test (we can use USDC as well)
     let mint = await token.createMint(
       connection, 
       auth, 
@@ -62,13 +62,13 @@ describe("liquidity_pool", () => {
       program.programId,
     );
 
-    // account address for token X
+    // account address for token
     let [vault, vault_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("vault"), poolState.toBuffer()], 
       program.programId,
     );
 
-    // mint for pool token
+    // mint for LP Token
     let [poolMint, poolMint_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("mint"), poolState.toBuffer()], 
       program.programId,
@@ -77,7 +77,7 @@ describe("liquidity_pool", () => {
     // lp supply required
     let lp_supply = new anchor.BN(120 * web3.LAMPORTS_PER_SOL);
 
-    // Add your test here.
+    // Call the function to test
     const tx = await program.rpc.initializePool(
       lp_supply, 
       {
@@ -113,15 +113,15 @@ describe("liquidity_pool", () => {
   // helper function 
   async function setup_lp_provider(lp_user: web3.PublicKey, amount: number) {
 
-    // user account for token X
+    // user account for token
     let user_ata = await token.createAssociatedTokenAccount(
       connection, pool.payer, pool.mint, lp_user);
 
-    // user account for pool token
+    // user account for LP Token
     let user_pool_ata = await token.createAssociatedTokenAccount(
       connection, pool.payer, pool.poolMint, lp_user);
 
-    // setup initial balance of token X
+    // setup initial balance of token
     await token.mintTo(connection, 
       pool.payer, 
       pool.mint, 
@@ -134,10 +134,12 @@ describe("liquidity_pool", () => {
     return [user_ata, user_pool_ata]
   }
 
+  // helper function: returns the balance of token account
   async function get_token_balance(pk) {
     return (await connection.getTokenAccountBalance(pk)).value.uiAmount;
   }
 
+  // return byte array of amount
   function lp_amount(n) {
     return new anchor.BN(n * 10 ** n_decimals)
   }
@@ -162,10 +164,10 @@ describe("liquidity_pool", () => {
       user_pool_ata: user_pool_ata
     };
 
-    // initial amounts of token X and tone Y
+    // initial amount of token to be added
     let amount_in = lp_amount(50);
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user_signer.publicKey.toBuffer()], 
       program.programId,
@@ -196,9 +198,9 @@ describe("liquidity_pool", () => {
     
     console.log("transaction signature", tx);
 
+    // assert the user balance has been deducted
     let user_balance = await get_token_balance(user_ata);
     assert(user_balance <= 50);
-  
   });
 
   // to be saved and used in other test cases
@@ -221,10 +223,10 @@ describe("liquidity_pool", () => {
       user_pool_ata: user_pool_ata
     };
 
-    // initial amounts of token X and tone Y
+    // initial amount of token to be deposited
     let amount_in = lp_amount(40);
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user_signer.publicKey.toBuffer()], 
       program.programId,
@@ -255,10 +257,13 @@ describe("liquidity_pool", () => {
 
     console.log("transaction signature", tx);
 
+    // assert user balance has been deducted
     let user_balance = await get_token_balance(user_ata);
     assert(user_balance <= 60);
   });
 
+  // user can ask for token transfers only from disabled pool
+  // disable the pool
   it("disable the pool to receive funds", async () => {
     const tx = await program.rpc.disablePool(
       {
@@ -277,14 +282,19 @@ describe("liquidity_pool", () => {
 
     console.log("transaction signature", tx);
 
+    // assert the pool is disabled
     let poolState = await program.account.poolState.fetch(pool.poolState);
     let poolIsActive = poolState.isActive;
     assert(poolIsActive == false)
   });
 
+
+  // case: required capital amount was not raised
+  // token (USDC) shall be transferred back
+  // No new LP Token should be minted
   it("ask output from pool for lp_user0", async () => {
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user0.signer.publicKey.toBuffer()], 
       program.programId,
@@ -318,13 +328,18 @@ describe("liquidity_pool", () => {
     let user_pool_balance = await get_token_balance(lp_user0.user_pool_ata);
     console.log("user balances: ", user_balance.toString(), user_pool_balance.toString());
 
+    // assert the token (USDC) is transferred back
+    // assert no LP Token has been transferred
     assert(user_balance > 50);
     assert(user_pool_balance == 0);
   });
 
+  // case: required capital amount was not raised
+  // token (USDC) shall be transferred back
+  // No new pool token should be minted
   it("ask output from pool for lp_user1", async () => {
 
-    // mint for pool token
+    // transaction
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user1.signer.publicKey.toBuffer()], 
       program.programId,
@@ -358,10 +373,13 @@ describe("liquidity_pool", () => {
     let user_pool_balance = await get_token_balance(lp_user1.user_pool_ata);
     console.log("user balances: ", user_balance.toString(), user_pool_balance.toString());
 
+    // assert the token (USDC) is transferred back
+    // assert no LP Token has been transferred
     assert(user_balance > 60);
     assert(user_pool_balance == 0);
   });
 
+  // enable the pool again to test other cases
   it("enable the pool to receive funds", async () => {
     const tx = await program.rpc.enablePool(
       {
@@ -387,10 +405,10 @@ describe("liquidity_pool", () => {
 
   it("add liquidity to the pool for lp_user0", async () => {
 
-    // initial amounts of token X and tone Y
+    // amount of token to be deposited
     let amount_in = lp_amount(70);
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user0.signer.publicKey.toBuffer()], 
       program.programId,
@@ -421,16 +439,17 @@ describe("liquidity_pool", () => {
     
     console.log("transaction signature", tx);
 
+    // assert user balance has been deducted
     let user_balance = await get_token_balance(lp_user0.user_ata);
     assert(user_balance <= 30);
-  
   });
 
   it("add second liquidity to the pool", async () => {
 
+    // amount of token to be deposited
     let amount_in = lp_amount(60);
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user1.signer.publicKey.toBuffer()], 
       program.programId,
@@ -461,10 +480,12 @@ describe("liquidity_pool", () => {
 
     console.log("transaction signature", tx);
 
+    // assert user balance has been deducted
     let user_balance = await get_token_balance(lp_user1.user_ata);
     assert(user_balance <= 40);
   });
 
+  // disable the pool to allow users to get back tokens
   it("disable the pool to receive funds", async () => {
     const tx = await program.rpc.disablePool(
       {
@@ -483,14 +504,18 @@ describe("liquidity_pool", () => {
 
     console.log("transaction signature", tx);
 
+    // assert the pool has been disabled
     let poolState = await program.account.poolState.fetch(pool.poolState);
     let poolIsActive = poolState.isActive;
     assert(poolIsActive == false)
   });
 
+  // case: required capital has been raised
+  // LP Tokens are transferred
+  // USDC tokens are not transferred back
   it("ask output from pool for lp_user0", async () => {
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user0.signer.publicKey.toBuffer()], 
       program.programId,
@@ -524,13 +549,18 @@ describe("liquidity_pool", () => {
     let user_pool_balance = await get_token_balance(lp_user0.user_pool_ata);
     console.log("user balances: ", user_balance.toString(), user_pool_balance.toString());
 
+    // assert USDC tokens are not transferred back
+    // assert LP Tokens are transferred to user
     assert(user_balance <= 30);
     assert(user_pool_balance >= 0);
   });
 
+  // case: required capital has been raised
+  // LP Tokens are transferred
+  // USDC tokens are not transferred back
   it("ask output from pool for lp_user1", async () => {
 
-    // mint for pool token
+    // transaction account
     let [transaction_account, transaction_account_b] = await web3.PublicKey.findProgramAddress(
       [Buffer.from("transaction"), lp_user1.signer.publicKey.toBuffer()], 
       program.programId,
@@ -564,9 +594,9 @@ describe("liquidity_pool", () => {
     let user_pool_balance = await get_token_balance(lp_user1.user_pool_ata);
     console.log("user balances: ", user_balance.toString(), user_pool_balance.toString());
 
+    // assert USDC tokens are not transferred back
+    // assert LP Tokens are transferred to user
     assert(user_balance <= 40);
     assert(user_pool_balance >= 0);
   });
-
-
 });

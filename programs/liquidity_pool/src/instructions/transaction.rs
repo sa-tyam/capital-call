@@ -20,6 +20,7 @@ pub fn add_liquidity (
     let pool_state = &mut ctx.accounts.pool_state;
     require!(pool_state.is_active, ErrorCode::PoolNotActive);
 
+    // check if user have enough balance
     let user_balance = ctx.accounts.user_ata.amount;
     require!(amount_in <= user_balance, ErrorCode::NotEnoughBalance);
 
@@ -36,10 +37,10 @@ pub fn add_liquidity (
         amount_in
     )?;
 
+    // update the transaction account values
     let transaction_account = &mut ctx.accounts.transaction_account;
     transaction_account.authority = ctx.accounts.owner.key();
     transaction_account.amount = amount_in;
-    transaction_account.is_paid = false;
 
     Ok(())
 }
@@ -53,7 +54,6 @@ pub fn ask_output (
     require!(!pool_state.is_active, ErrorCode::PoolStillActive);
 
     let transaction_account = &mut ctx.accounts.transaction_account;
-    require!(!transaction_account.is_paid, ErrorCode::AlreadyPaid);
 
     let bump = *ctx.bumps.get("pool_authority").unwrap();
     let pool_key = pool_state.key();
@@ -85,7 +85,6 @@ pub fn ask_output (
 
         // transfer back usdc tokens
         // transfer output amount from pool vault to user account
-        
         token::transfer(CpiContext::new(
             ctx.accounts.token_program.to_account_info(), 
             Transfer {
@@ -117,7 +116,7 @@ pub struct AddLiquidity<'info> {
     )]
     pub pool_state: Box<Account<'info, PoolState>>,
 
-    // authority so 1 account passed in can derive all other pdas 
+    // pda to sign transactions 
     /// CHECK: safe
     #[account(
         seeds=[POOL_AUTHORITY_TAG, pool_state.key().as_ref()], 
@@ -141,8 +140,6 @@ pub struct AddLiquidity<'info> {
     )] 
     pub pool_mint: Box<Account<'info, Mint>>, 
 
-    
-
     // user accounts
     // user usdc ata
     #[account(
@@ -152,7 +149,6 @@ pub struct AddLiquidity<'info> {
     pub user_ata: Box<Account<'info, TokenAccount>>,
 
     // transaction account
-    // pool state of the pool
     #[account(
         init, 
         payer=owner, 
@@ -186,7 +182,7 @@ pub struct AskOutput<'info> {
     )]
     pub pool_state: Box<Account<'info, PoolState>>,
 
-    // authority so 1 account passed in can derive all other pdas 
+    // pda to sign transactions 
     /// CHECK: safe
     #[account(
         seeds=[POOL_AUTHORITY_TAG, pool_state.key().as_ref()], 
@@ -212,6 +208,7 @@ pub struct AskOutput<'info> {
     )] 
     pub pool_mint: Box<Account<'info, Mint>>, 
 
+    // user account for USDC
     #[account(
         mut, 
         has_one = owner
@@ -226,7 +223,6 @@ pub struct AskOutput<'info> {
     pub user_pool_ata: Box<Account<'info, TokenAccount>>,  
 
     // transaction account
-    // pool state of the pool
     #[account(
         mut, 
         close = owner,

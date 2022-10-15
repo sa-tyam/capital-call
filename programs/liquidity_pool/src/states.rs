@@ -13,5 +13,4 @@ pub struct PoolState {
 pub struct TransactionAccount {
     pub authority: Pubkey, 
     pub amount: u64, 
-    pub is_paid: bool,
 }

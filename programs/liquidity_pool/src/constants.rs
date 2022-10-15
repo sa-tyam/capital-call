@@ -14,4 +14,3 @@ pub const POOL_MINT_TAG: &[u8] = b"mint";
 
 #[constant]
 pub const TRANSACTION_TAG: &[u8] = b"transaction";
-

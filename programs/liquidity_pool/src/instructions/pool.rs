@@ -8,6 +8,9 @@ use anchor_spl::{
 use crate::states::PoolState;
 use crate::constants::*;
 
+// initialize the pool and pool state
+// set the is_active filed to true
+// one can deposit amount onlu if pool is active
 pub fn initialize_pool(
     ctx: Context<InitializePool>, 
     lp_supply: u64,
@@ -15,6 +18,7 @@ pub fn initialize_pool(
 
     let pool_state = &mut ctx.accounts.pool_state;
 
+    // lp_supply is the amount of minimum capital required
     pool_state.lp_supply = lp_supply;
     pool_state.credit_outstanding = 7348028;
     pool_state.is_active = true;
@@ -22,6 +26,8 @@ pub fn initialize_pool(
     Ok(())
 }
 
+// sets the is_active field of pool state to false
+// one can withdraw usdc or get the LP Tokens only when pool is disabled
 pub fn disable_pool(
     ctx: Context<DisablePool>,
 ) -> Result<()> {
@@ -33,6 +39,8 @@ pub fn disable_pool(
     Ok(())
 }
 
+// eanble the pool, i.e., set the is_active field of pool state to true
+// one can deposit amount only if pool is active
 pub fn enable_pool(
     ctx: Context<EnablePool>,
 ) -> Result<()> {
@@ -63,7 +71,7 @@ pub struct InitializePool<'info> {
     )]
     pub pool_state: Box<Account<'info, PoolState>>,
 
-    // authority so 1 account passed in can derive all other pdas 
+    // PDA to sign transactions
     /// CHECK: safe
     #[account(
         seeds=[POOL_AUTHORITY_TAG, pool_state.key().as_ref()], 
