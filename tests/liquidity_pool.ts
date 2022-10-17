@@ -76,10 +76,12 @@ describe("liquidity_pool", () => {
 
     // lp supply required
     let lp_supply = new anchor.BN(120 * web3.LAMPORTS_PER_SOL);
+    let duration_in_minute = new anchor.BN(1);
 
     // Call the function to test
     const tx = await program.rpc.initializePool(
-      lp_supply, 
+      lp_supply,
+      duration_in_minute,
       {
         accounts: {
           mint: mint, 
@@ -260,34 +262,11 @@ describe("liquidity_pool", () => {
     // assert user balance has been deducted
     let user_balance = await get_token_balance(user_ata);
     assert(user_balance <= 60);
+    
+    // sleep for 1 miute
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    await sleep(60000);
   });
-
-  // user can ask for token transfers only from disabled pool
-  // disable the pool
-  it("disable the pool to receive funds", async () => {
-    const tx = await program.rpc.disablePool(
-      {
-        accounts: {
-          mint: pool.mint,
-          poolState: pool.poolState,
-
-          authority: provider.wallet.publicKey, 
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: token.TOKEN_PROGRAM_ID, 
-          associatedTokenProgram: token.ASSOCIATED_TOKEN_PROGRAM_ID, 
-          rent: web3.SYSVAR_RENT_PUBKEY
-        }
-      }
-    );
-
-    console.log("transaction signature", tx);
-
-    // assert the pool is disabled
-    let poolState = await program.account.poolState.fetch(pool.poolState);
-    let poolIsActive = poolState.isActive;
-    assert(poolIsActive == false)
-  });
-
 
   // case: required capital amount was not raised
   // token (USDC) shall be transferred back
@@ -483,31 +462,10 @@ describe("liquidity_pool", () => {
     // assert user balance has been deducted
     let user_balance = await get_token_balance(lp_user1.user_ata);
     assert(user_balance <= 40);
-  });
 
-  // disable the pool to allow users to get back tokens
-  it("disable the pool to receive funds", async () => {
-    const tx = await program.rpc.disablePool(
-      {
-        accounts: {
-          mint: pool.mint,
-          poolState: pool.poolState,
-
-          authority: provider.wallet.publicKey, 
-          systemProgram: web3.SystemProgram.programId,
-          tokenProgram: token.TOKEN_PROGRAM_ID, 
-          associatedTokenProgram: token.ASSOCIATED_TOKEN_PROGRAM_ID, 
-          rent: web3.SYSVAR_RENT_PUBKEY
-        }
-      }
-    );
-
-    console.log("transaction signature", tx);
-
-    // assert the pool has been disabled
-    let poolState = await program.account.poolState.fetch(pool.poolState);
-    let poolIsActive = poolState.isActive;
-    assert(poolIsActive == false)
+     // sleep for 1 miute
+     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+     await sleep(60000);
   });
 
   // case: required capital has been raised

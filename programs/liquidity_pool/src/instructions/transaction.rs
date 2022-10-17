@@ -1,4 +1,5 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock};
+use std::convert::TryInto;
 
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -20,6 +21,16 @@ pub fn add_liquidity (
     let pool_state = &mut ctx.accounts.pool_state;
     require!(pool_state.is_active, ErrorCode::PoolNotActive);
 
+    // calculate current in seconds
+    let cur_time_in_ms : u64 = clock::Clock::get()?.unix_timestamp.try_into().unwrap();
+    
+    // deactivate pool if duration has already passed
+    if cur_time_in_ms >= pool_state.activation_time
+    .checked_add(pool_state.duration_in_minutes * 60).unwrap() {
+        pool_state.is_active = false;
+    }
+    require!(pool_state.is_active, ErrorCode::PoolNotActive);
+    
     // check if user have enough balance
     let user_balance = ctx.accounts.user_ata.amount;
     require!(amount_in <= user_balance, ErrorCode::NotEnoughBalance);
@@ -51,6 +62,16 @@ pub fn ask_output (
 
     // check if pool is active
     let pool_state = &mut ctx.accounts.pool_state;
+
+    // calculate current in miliseconds
+    let cur_time_in_ms : u64 = clock::Clock::get()?.unix_timestamp.try_into().unwrap();
+
+    // deactivate pool if duration has already passed
+    if pool_state.is_active && cur_time_in_ms >= pool_state.activation_time
+    .checked_add(pool_state.duration_in_minutes * 60).unwrap() {
+        pool_state.is_active = false;
+    }
+    
     require!(!pool_state.is_active, ErrorCode::PoolStillActive);
 
     let transaction_account = &mut ctx.accounts.transaction_account;

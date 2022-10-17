@@ -1,4 +1,5 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program::clock};
+use std::convert::TryInto;
 
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -14,14 +15,20 @@ use crate::constants::*;
 pub fn initialize_pool(
     ctx: Context<InitializePool>, 
     lp_supply: u64,
+    duration_in_minutes: u64,
 ) -> Result<()> {
 
     let pool_state = &mut ctx.accounts.pool_state;
 
+    // calculate current in seconds
+    let time_in_s: u64 = clock::Clock::get()?.unix_timestamp.try_into().unwrap();
+
     // lp_supply is the amount of minimum capital required
     pool_state.lp_supply = lp_supply;
+    pool_state.duration_in_minutes = duration_in_minutes;
     pool_state.credit_outstanding = 7348028;
     pool_state.is_active = true;
+    pool_state.activation_time = time_in_s;
 
     Ok(())
 }
@@ -47,7 +54,12 @@ pub fn enable_pool(
 
     let pool_state = &mut ctx.accounts.pool_state;
 
+     // calculate current in seconds
+     let time_in_s: u64 = clock::Clock::get()?.unix_timestamp.try_into().unwrap();
+ 
+
     pool_state.is_active = true;
+    pool_state.activation_time = time_in_s;
 
     Ok(())
 }

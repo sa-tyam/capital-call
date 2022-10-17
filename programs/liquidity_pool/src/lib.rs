@@ -17,8 +17,9 @@ pub mod liquidity_pool {
     pub fn initialize_pool(
         ctx: Context<InitializePool>, 
         lp_supply: u64,
+        duration_in_minutes: u64,
     ) -> Result<()> {
-        pool::initialize_pool(ctx, lp_supply)
+        pool::initialize_pool(ctx, lp_supply, duration_in_minutes)
     }
 
     pub fn disable_pool(
