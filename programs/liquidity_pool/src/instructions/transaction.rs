@@ -85,7 +85,8 @@ pub fn ask_output (
     if pool_vault.amount >= pool_state.lp_supply {
 
         // mint pool tokens
-        let mint_amount = 10;
+        let mint_price = (pool_vault.amount.checked_add(pool_state.credit_outstanding).unwrap()).checked_div(pool_state.lp_supply).unwrap();
+        let mint_amount = transaction_account.amount.checked_div(mint_price).unwrap();
 
         // transfer pool token to user account
         let mint_ctx = CpiContext::new(
